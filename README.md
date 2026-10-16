@@ -2,7 +2,28 @@
 
 A readable refactor of your exploration proof of concept. The model chooses
 actions; Python enforces the game rules and renders the resulting states.
-Each application class has its own file. No planning algorithm was added.
+Each application class has its own file. A* plans the return journey through
+known safe cells after the agent reaches the target.
+
+## Target and return mission
+
+The world chooses a non-start target reachable through grass/forest without
+wolves. Its location stays hidden until investigated. Worlds with no eligible
+target (including a 1x1 grid) raise a clear error; choose another seed or size.
+
+The agent explores, moves onto the discovered target, calls
+`plan_return_to_start`, and executes the returned directions using individual
+`move` calls. Planning does not move the player or consume a game turn.
+Unknown cells, water and wolves are blocked by A*; movement enforces the same
+rule. Forest and grass both cost one step. The shortest route is relative to
+the known map, not undiscovered shortcuts.
+
+Success is `MISSION_COMPLETE`: the target was visited and the player returned
+to the start. Full-grid exploration is no longer required. The GIF labels the
+start `S` and the revealed target `T`.
+
+Review `grid_world.py` for rules, `path_planner.py` for A*, `tools.py` for its
+SDK wrapper, and `explorer_agent.py` for the mission instructions.
 
 ## Start here
 
@@ -15,7 +36,8 @@ and finally `main.py`. Read `world_visualizer.py` when you want to change the GI
 | `grid_explorer/grid_world.py` | `GridWorld`: map generation, rules and observations |
 | `grid_explorer/world_visualizer.py` | `WorldVisualizer`: capture frames and export a GIF |
 | `grid_explorer/game_context.py` | `GameContext`: the world and renderer for one SDK run |
-| `grid_explorer/tools.py` | Two SDK function tools: investigate and move |
+| `grid_explorer/tools.py` | SDK tools: investigate, move and plan_return_to_start |
+| `grid_explorer/path_planner.py` | A* through known safe cells |
 | `grid_explorer/explorer_agent.py` | Agent factory, instructions and model settings |
 | `grid_explorer/config.py` | Dimensions, seed, model, GIF settings and turn limit |
 | `grid_explorer/types.py` | Position and direction type aliases |
@@ -67,11 +89,10 @@ Investigating reveals one adjacent cell but does not move the player. Moving
 requires an already revealed destination. Successful actions increment
 `world.turn`; rejected actions do not. A move can revisit a known cell.
 
-Completion means every cell is **revealed**, not that every cell has been visited.
-Water, forests, grass quality and wolves are descriptive data: they do not block
-movement, cause damage or affect a reward. That is the original behavior.
-If you later want risk-aware decisions, define those consequences in the game
-before changing the agent's goal.
+`EXPLORATION_COMPLETE` still measures whether every cell is revealed, but is
+only a statistic. Mission completion requires visiting the target and returning
+home. Water and wolves block movement; forests are allowed. Grass quality is
+descriptive and does not affect route cost.
 
 The model sees the initial observation and tool responses, including known-cell
 details. The local `GameContext` is used by Python tools and is not itself sent

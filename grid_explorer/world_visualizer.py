@@ -12,6 +12,7 @@ from PIL import Image
 
 from .config import FRAME_DURATION_MS, GIF_PATH
 from .grid_world import GridWorld
+from .types import Direction, Position
 
 
 class WorldVisualizer:
@@ -20,9 +21,31 @@ class WorldVisualizer:
     def __init__(self, game: GridWorld):
         self.game = game
         self.frames: list[Image.Image] = []
+        self.planned_path: list[Position] = []
+        self.actual_path: list[Position] = []
+
+    def show_return_plan(self, directions: list[Direction]) -> None:
+        """Snapshot this plan; subsequent captures track actual movement separately."""
+        pos = self.game.player
+        self.planned_path = [pos]
+        offsets = {"L": (0, -1), "R": (0, 1), "U": (-1, 0), "D": (1, 0)}
+        for direction in directions:
+            dr, dc = offsets[direction]
+            pos = (pos[0] + dr, pos[1] + dc)
+            self.planned_path.append(pos)
+        self.actual_path = [self.game.player]
+        self.capture(f"A* return plan: {len(directions)} moves")
+
+    @property
+    def follows_plan(self) -> bool:
+        return bool(self.planned_path) and (
+            self.actual_path == self.planned_path[:len(self.actual_path)]
+        )
 
     def capture(self, action_text: str = "Initial state") -> None:
         game = self.game
+        if self.planned_path and self.actual_path[-1] != game.player:
+            self.actual_path.append(game.player)
         fig, ax = plt.subplots(figsize=(7, 7))
         for r in range(game.rows):
             for c in range(game.cols):
@@ -31,6 +54,9 @@ class WorldVisualizer:
                 if pos not in game.known:
                     facecolor = "lightgray"
                     label = "?"
+                elif pos == game.goal:
+                    facecolor = "gold"
+                    label = "T"
                 elif cell.terrain == "grass":
                     facecolor = "palegreen"
                     label = f"{cell.grass_quality:.1f}"
@@ -51,6 +77,10 @@ class WorldVisualizer:
                     )
                 )
                 if pos in game.known:
+                    if pos == game.start:
+                        label = "S"
+                    elif pos == game.goal:
+                        label = "T"
                     ax.text(
                         c + 0.5,
                         game.rows - 1 - r + 0.5,
@@ -69,6 +99,21 @@ class WorldVisualizer:
                             fontsize=6,
                             fontweight="bold",
                         )
+        if self.planned_path:
+            for path, color, style, width, label in (
+                (self.planned_path, "royalblue", "--", 5, "A* suggested route"),
+                (self.actual_path, "darkorange", "-", 2, "Actual return movement"),
+            ):
+                ax.plot(
+                    [c + 0.5 for r, c in path],
+                    [game.rows - 1 - r + 0.5 for r, c in path],
+                    color=color, linestyle=style, linewidth=width,
+                    marker="o", markersize=4, label=label, zorder=2,
+                )
+            for step, (r, c) in enumerate(self.planned_path):
+                ax.text(c + 0.12, game.rows - 1 - r + 0.85, str(step),
+                        color="navy", fontsize=8, fontweight="bold")
+            ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.03), fontsize=9)
         pr, pc = game.player
         ax.text(
             pc + 0.5,
@@ -91,6 +136,13 @@ class WorldVisualizer:
             f"Turn {game.turn} | Known {len(game.known)}/{game.rows * game.cols}\n"
             f"{action_text}"
         )
+        if self.planned_path:
+            comparison = "Following plan" if self.follows_plan else "Deviated from plan"
+            ax.set_title(
+                ax.get_title() + "\n" + comparison
+                + f" | Actual moves: {len(self.actual_path) - 1}"
+                + f" | Planned: {len(self.planned_path) - 1}"
+            )
         fig.tight_layout()
         # Convert the Matplotlib canvas to a PIL image and retain it in memory.
         buffer = BytesIO()

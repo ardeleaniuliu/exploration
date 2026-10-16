@@ -32,7 +32,8 @@ async def main() -> int:
     try:
         result = await Runner.run(
             agent,
-            f"Explore this world completely. Start acting now.\n\n{world.observation()}",
+            f"Find the target, visit it, and return to the start. "
+            f"Start acting now.\n\n{world.observation()}",
             context=context,
             max_turns=MAX_AGENT_TURNS,
         )
@@ -43,13 +44,13 @@ async def main() -> int:
         status = 1
     finally:
         visualizer.save_gif(GIF_PATH)
-        print(f"\nExploration complete: {world.exploration_complete}")
+        print(f"\nMission complete: {world.mission_complete}")
         print(f"Known cells: {len(world.known)}/{world.rows * world.cols}")
         print(f"Successful game actions: {world.turn}")
         print(f"GIF saved to: {GIF_PATH.resolve()}")
 
     # An agent's final report alone does not prove the task was completed.
-    return status if world.exploration_complete else 1
+    return status if world.mission_complete else 1
 
 
 if __name__ == "__main__":

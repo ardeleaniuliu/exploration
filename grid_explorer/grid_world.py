@@ -18,10 +18,37 @@ class GridWorld:
         self.random = random.Random(seed)
         self.grid: dict[Position, Cell] = {}
         self.known: set[Position] = set()
-        self.player: Position = (0, 0)
+        self.start: Position = (0, 0)
+        self.player: Position = self.start
+        self.goal_visited = False
         self.turn = 0
         self._generate_world()
         self._reveal(self.player)
+        self.goal = self._choose_goal()
+
+    def _choose_goal(self) -> Position:
+        reachable = {self.start}
+        pending = [self.start]
+
+        while pending:
+            pos = pending.pop()
+            for direction in ("L", "R", "U", "D"):
+                neighbor = self._adjacent(pos, direction)
+                if neighbor is None or neighbor in reachable:
+                    continue
+
+                cell = self.grid[neighbor]
+                if cell.terrain == "water" or cell.wolf:
+                    continue
+
+                reachable.add(neighbor)
+                pending.append(neighbor)
+
+        candidates = sorted(reachable - {self.start})
+        if not candidates:
+            raise ValueError("No reachable target cell; use a different seed or grid.")
+
+        return self.random.choice(candidates)
 
     def _generate_world(self) -> None:
         for r in range(self.rows):
@@ -67,7 +94,13 @@ class GridWorld:
             return self._format_result(
                 f"MOVE {direction}: that cell is unknown. Investigate it first."
             )
+        if not self.is_walkable(target):
+            return self._format_result(
+                f"MOVE {direction}: water and wolf cells are forbidden."
+            )
         self.player = target
+        if self.player == self.goal:
+            self.goal_visited = True
         self.turn += 1
         result = (
             f"MOVE {direction}: moved to {target}. {self._cell_description(target)}"
@@ -78,11 +111,15 @@ class GridWorld:
         lines = [
             f"TURN: {self.turn}",
             f"PLAYER: row={self.player[0]}, col={self.player[1]}",
+            f"START: {self.start}",
+            f"GOAL: {self.goal if self.goal in self.known else 'unknown'}",
+            f"GOAL_VISITED: {self.goal_visited}",
+            f"MISSION_COMPLETE: {self.mission_complete}",
             f"KNOWN_CELLS: {len(self.known)}/{self.rows * self.cols}",
             f"EXPLORATION_COMPLETE: {self.exploration_complete}",
             "",
             "MAP:",
-            "  ? = unknown, P = player, G = grass, F = forest, W = water",
+            "  ? = unknown, P = player, S = start, T = target, G = grass, F = forest, W = water",
         ]
         for r in range(self.rows):
             row_tokens = []
@@ -92,6 +129,10 @@ class GridWorld:
                     token = "P"
                 elif pos not in self.known:
                     token = "?"
+                elif pos == self.goal:
+                    token = "T"
+                elif pos == self.start:
+                    token = "S"
                 else:
                     token = {"grass": "G", "forest": "F", "water": "W"}[
                         self.grid[pos].terrain
@@ -103,6 +144,18 @@ class GridWorld:
         for pos in sorted(self.known):
             lines.append(f"  {pos}: {self._cell_description(pos)}")
         return "\n".join(lines)
+
+    def is_walkable(self, pos: Position) -> bool:
+        """Only revealed grass/forest cells without wolves can be entered."""
+        return (
+            pos in self.known
+            and self.grid[pos].terrain != "water"
+            and not self.grid[pos].wolf
+        )
+
+    @property
+    def mission_complete(self) -> bool:
+        return self.goal_visited and self.player == self.start
 
     @property
     def exploration_complete(self) -> bool:

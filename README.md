@@ -106,6 +106,29 @@ to finish with one action per iteration. Try `ROWS = COLS = 3` first, then adjus
 the limit deliberately. A higher limit allows more model calls and API spend;
 it does not guarantee that the model will explore efficiently or finish.
 
+## Action history
+
+Each run creates a separate `logs/exploration-<UTC timestamp>-<id>.jsonl` file;
+the path is printed at startup. Each line is one JSON object containing
+`step`, `timestamp_utc`, `state_before`, `action`, `stated_reason`, `state_after`,
+and `result`. The state fields are the same readable observations exposed to
+the model, including the known map; hidden cells and the undiscovered goal
+are not included. `action` holds the tool name and direction where applicable.
+
+All three tools require a short `stated_reason` supplied by the model before
+execution. This is a stated rationale, not a verified account of its internal
+reasoning. Requesting it can itself influence model behaviour.
+
+Records are appended and the file closed after each completed tool action,
+before animation capture. Rejected game actions and return-planning attempts
+are included, even when the game turn does not change. SDK argument-validation
+failures and exceptions before a tool produces a result are not action records.
+Previously written records remain available if a later model call fails.
+Logs are ignored by Git. No additional model calls are made for logging.
+
+For example, read a record in Python with `json.loads(line)` and print
+`record["state_before"]` to display its map with real line breaks.
+
 ## Offline checks
 
 ```powershell

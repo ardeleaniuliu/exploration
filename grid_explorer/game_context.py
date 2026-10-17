@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from .action_log import ActionLog
 from .grid_world import GridWorld
 from .world_visualizer import WorldVisualizer
 
@@ -10,3 +11,4 @@ from .world_visualizer import WorldVisualizer
 class GameContext:
     world: GridWorld
     visualizer: WorldVisualizer
+    action_log: ActionLog | None = None

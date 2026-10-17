@@ -25,12 +25,12 @@ class PlannerToolTests(unittest.IsolatedAsyncioTestCase):
             tool_call_id="test-plan",
             tool_arguments="{}",
         )
-        rejected = await plan_return_to_start.on_invoke_tool(wrapper, "{}")
+        rejected = await plan_return_to_start.on_invoke_tool(wrapper, json.dumps({"stated_reason": "Plan the return home."}))
         self.assertIn("Move onto", rejected)
         self.assertEqual(visualizer.planned_path, [])
         world.investigate("R")
         world.move("R")
-        plan = json.loads(await plan_return_to_start.on_invoke_tool(wrapper, "{}"))
+        plan = json.loads(await plan_return_to_start.on_invoke_tool(wrapper, json.dumps({"stated_reason": "Plan the return home."})))
         self.assertEqual(plan["directions"], ["L"])
         self.assertEqual(plan["steps"], 1)
         self.assertEqual(world.player, world.goal)
@@ -39,7 +39,7 @@ class PlannerToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(visualizer.actual_path, [(0, 1)])
         self.assertEqual(len(visualizer.frames), 1)
         for direction in plan["directions"]:
-            arguments = json.dumps({"direction": direction})
+            arguments = json.dumps({"direction": direction, "stated_reason": "Follow the return plan."})
             movement_context = ToolContext(
                 context=wrapper.context,
                 tool_name="move",

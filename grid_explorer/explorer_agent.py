@@ -3,7 +3,7 @@
 from agents import Agent, ModelSettings
 from openai.types.shared import Reasoning
 
-from .config import MODEL
+from .config import MODEL, EFFORT
 from .game_context import GameContext
 from .tools import investigate, move, plan_return_to_start
 
@@ -21,6 +21,8 @@ Actions:
 - Directions: L = left, R = right, U = up, D = down.
 
 After each action, use the returned observation to choose your next action.
+For every tool call, supply stated_reason: one short sentence explaining why
+this action helps the mission, grounded only in the current known state.
 Request exactly one action at a time because actions change shared game state.
 Never assume the contents of unknown cells.
 While GOAL is unknown:
@@ -53,14 +55,14 @@ EXPLORATION_COMPLETE is only a statistic; revealing the entire grid is not requi
 """
 
 
-def create_explorer_agent(model: str = MODEL) -> Agent[GameContext]:
+def create_explorer_agent(model: str = MODEL, effort: str = EFFORT) -> Agent[GameContext]:
     return Agent[GameContext](
         name="Grid World Explorer",
         model=model,
         instructions=INSTRUCTIONS,
         tools=[investigate, move, plan_return_to_start],
         model_settings=ModelSettings(
-            reasoning=Reasoning(effort="high"),
+            reasoning=Reasoning(effort=effort),
             parallel_tool_calls=False,
         ),
     )

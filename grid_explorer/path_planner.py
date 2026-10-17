@@ -8,11 +8,11 @@ from .types import Direction, Position
 
 def astar(
     world: GridWorld, start: Position, destination: Position
-) -> list[Direction] | None:
+) -> list[Direction] | None | str:
     """Return movement directions, or None if no known safe route exists."""
     if not world.is_walkable(start) or not world.is_walkable(destination):
         return None
-
+    
     def heuristic(pos: Position) -> int:
         return abs(pos[0] - destination[0]) + abs(pos[1] - destination[1])
 
